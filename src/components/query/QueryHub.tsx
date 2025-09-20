@@ -32,26 +32,14 @@ export const QueryHub: React.FC = () => {
     {
       id: '1',
       type: 'assistant',
-      content: 'Hello! I\'m your medical document assistant. I can help you search through patient records, medical literature, and clinical documents. What would you like to know?',
+      content: 'Hello! I\'m your medical document assistant. Please select documents from the sidebar to start querying, or ask general medical questions. What would you like to know?',
       timestamp: new Date()
     }
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const [selectedDocuments] = useState<SelectedDocument[]>([
-    {
-      id: '1',
-      name: 'Patient_John_Doe_CardiacReport.pdf',
-      type: 'patient',
-      patientInfo: { id: 'P12345', name: 'John Doe' }
-    },
-    {
-      id: '2',
-      name: 'Cardiology_Guidelines_2024.pdf',
-      type: 'general'
-    }
-  ]);
+  const [selectedDocuments] = useState<SelectedDocument[]>([]);
   const [queryScope, setQueryScope] = useState<'patient' | 'general' | 'both'>('both');
 
   const querySuggestions = [
@@ -211,26 +199,34 @@ export const QueryHub: React.FC = () => {
         <div className="flex-1 min-h-0">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Selected Documents</h4>
           <div className="space-y-2 h-full overflow-y-auto">
-            {selectedDocuments.map((doc) => (
-              <div key={doc.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-                <div className="flex-shrink-0">
-                  {doc.type === 'patient' ? (
-                    <User className="w-4 h-4 text-blue-500 mt-0.5" />
-                  ) : (
-                    <FileText className="w-4 h-4 text-green-500 mt-0.5" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-900 truncate">{doc.name}</p>
-                  {doc.patientInfo && (
-                    <p className="text-xs text-blue-600">
-                      {doc.patientInfo.name} ({doc.patientInfo.id})
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 capitalize">{doc.type}</p>
-                </div>
+            {selectedDocuments.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">
+                <FileText className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">No documents selected</p>
+                <p className="text-xs text-gray-400 mt-1">Select documents from the repository to start querying</p>
               </div>
-            ))}
+            ) : (
+              selectedDocuments.map((doc) => (
+                <div key={doc.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-shrink-0">
+                    {doc.type === 'patient' ? (
+                      <User className="w-4 h-4 text-blue-500 mt-0.5" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-green-500 mt-0.5" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-900 truncate">{doc.name}</p>
+                    {doc.patientInfo && (
+                      <p className="text-xs text-blue-600">
+                        {doc.patientInfo.name} ({doc.patientInfo.id})
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 capitalize">{doc.type}</p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

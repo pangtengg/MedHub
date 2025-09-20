@@ -56,7 +56,7 @@ export const DoctorQueryHub: React.FC = () => {
     {
       id: '1',
       type: 'assistant',
-      content: 'Hello! I\'m your medical document assistant. I can help you search through patient records, medical literature, and clinical documents. Upload documents using the + button in the sidebar, then select them to start querying. What would you like to know?',
+      content: 'Hello! I\'m your medical document assistant. Upload documents using the + button in the sidebar, then select them to start querying. What would you like to know?',
       timestamp: new Date()
     }
   ]);
@@ -97,7 +97,7 @@ export const DoctorQueryHub: React.FC = () => {
       size: '2.3 MB',
       status: 'processed',
       pages: 12,
-      selected: true
+      selected: false
     },
     {
       id: '2',
@@ -107,7 +107,7 @@ export const DoctorQueryHub: React.FC = () => {
       size: '5.8 MB',
       status: 'processed',
       pages: 245,
-      selected: true
+      selected: false
     },
     {
       id: '3',
@@ -351,12 +351,17 @@ export const DoctorQueryHub: React.FC = () => {
         </div>
 
         {/* Selected Documents Summary */}
-        {selectedDocuments.length > 0 && (
+        {selectedDocuments.length > 0 ? (
           <div className="px-6 py-4 bg-blue-50 border-b border-blue-200">
             <p className="text-sm font-medium text-blue-900">
               {selectedDocuments.length} document{selectedDocuments.length > 1 ? 's' : ''} selected
             </p>
             <p className="text-sm text-blue-700">Ready for AI queries</p>
+          </div>
+        ) : (
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <p className="text-sm font-medium text-gray-700">No documents selected</p>
+            <p className="text-sm text-gray-500">Select documents to enable AI queries</p>
           </div>
         )}
 

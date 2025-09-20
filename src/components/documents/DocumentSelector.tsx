@@ -51,15 +51,6 @@ export const DocumentSelector: React.FC = () => {
       status: 'processed',
       pages: 4
     },
-    {
-      id: '4',
-      name: 'Clinical_Trial_Protocol_CT2024.pdf',
-      type: 'general',
-      uploadDate: new Date('2024-01-08'),
-      size: '3.4 MB',
-      status: 'processing',
-      pages: 0
-    }
   ];
 
   const filteredDocuments = documents.filter(doc => {
