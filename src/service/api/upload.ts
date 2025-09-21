@@ -192,6 +192,20 @@ export const uploadFile = async (
       throw new Error('File size exceeds 100MB limit');
     }
 
+    // In the uploadFile function, add better validation
+    if (!file || file.size === 0) {
+      throw new Error('Invalid file provided');
+    }
+
+    if (!file.name || file.name.trim() === '') {
+      throw new Error('File name is required');
+    }
+
+    // Check if file.name is a valid string
+    if (typeof file.name !== 'string') {
+      throw new Error('File name must be a string');
+    }
+
     console.log('🔗 Getting presigned URL...');
     // Get presigned URL
     const { presignedUrl, fileKey } = await getPresignedUrl(
