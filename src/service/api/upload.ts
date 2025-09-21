@@ -1,4 +1,13 @@
 // src/service/api/upload.ts
+  interface UploadRequest {
+    fileName: string;
+    fileType: string;
+    fileSize: number;
+    type: 'patient' | 'general';
+    patientId?: string;
+    patientName?: string;
+    department?: string;
+}
 
 export interface PresignedUrlResponse {
   presignedUrl: string;
@@ -22,59 +31,37 @@ export interface UploadProgress {
 export const getPresignedUrl = async (
   fileName: string,
   fileType: string,
-  fileSize: number
+  fileSize: number,
+  docType: 'patient' | 'general',
+  patientInfo?: { id: string; name: string; department?: string }
 ): Promise<PresignedUrlResponse> => {
   const API_BASE_URL = "https://kr6yyu1wff.execute-api.ap-southeast-1.amazonaws.com/prod";
   const API_URL = `${API_BASE_URL}/get-presigned-url`;
 
-  console.log('🔗 Getting presigned URL for:', {
+const requestBody: UploadRequest = {
     fileName,
     fileType,
     fileSize,
-    apiUrl: API_URL
+    type: docType,
+  };
+
+  if (docType === "patient" && patientInfo) {
+    requestBody.patientId = patientInfo.id;
+    requestBody.patientName = patientInfo.name;
+    requestBody.department = patientInfo.department;
+  }
+
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(requestBody),
   });
 
-  try {
-    const requestBody = {
-      fileName,
-      fileType,
-      fileSize,
-    };
-
-    console.log('📤 Sending request to API:', requestBody);
-
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    console.log('📥 API Response status:', response.status);
-    console.log('📥 API Response headers:', Object.fromEntries(response.headers.entries()));
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ API Error Response:', errorText);
-      throw new Error(`API error (${response.status}): ${errorText || response.statusText}`);
-    }
-
-    const data: PresignedUrlResponse = await response.json();
-    console.log('✅ Presigned URL received:', {
-      presignedUrl: data.presignedUrl ? 'Present' : 'Missing',
-      fileKey: data.fileKey,
-      bucketName: data.bucketName
-    });
-    
-    return data;
-  } catch (error) {
-    console.error('❌ Error getting presigned URL:', error);
-    if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      throw new Error('Network error: Cannot connect to the server. Please check your connection.');
-    }
-    throw error;
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
   }
+
+  return response.json();
 };
 
 /**
@@ -170,58 +157,22 @@ export const uploadFileToS3 = async (
  */
 export const uploadFile = async (
   file: File,
+  docType: 'patient' | 'general',
+  patientInfo?: { id: string; name: string; department?: string },
   onProgress?: (progress: UploadProgress) => void
 ): Promise<string> => {
-  console.log('📁 Starting file upload process for:', file.name);
-  
-  try {
-    // Validate file
-    if (!file || file.size === 0) {
-      throw new Error('Invalid file provided');
-    }
+    if (!file) throw new Error('File is required');
+    if (file.size > 10 * 1024 * 1024) throw new Error('File size exceeds 10MB limit');
+    if (!file.name.toLowerCase().endsWith('.pdf')) throw new Error('Only PDF files are allowed');
+  // Get presigned URL with metadata
+  const { presignedUrl, fileKey } = await getPresignedUrl(
+    file.name,
+    file.type,
+    file.size,
+    docType,
+    patientInfo
+  );
 
-    console.log('✅ File validation passed:', {
-      name: file.name,
-      size: file.size,
-      type: file.type
-    });
-
-    // Check file size (optional: limit to 100MB)
-    const maxSize = 100 * 1024 * 1024; // 100MB
-    if (file.size > maxSize) {
-      throw new Error('File size exceeds 100MB limit');
-    }
-
-    // In the uploadFile function, add better validation
-    if (!file || file.size === 0) {
-      throw new Error('Invalid file provided');
-    }
-
-    if (!file.name || file.name.trim() === '') {
-      throw new Error('File name is required');
-    }
-
-    // Check if file.name is a valid string
-    if (typeof file.name !== 'string') {
-      throw new Error('File name must be a string');
-    }
-
-    console.log('🔗 Getting presigned URL...');
-    // Get presigned URL
-    const { presignedUrl, fileKey } = await getPresignedUrl(
-      file.name,
-      file.type,
-      file.size
-    );
-
-    console.log('🚀 Starting S3 upload...');
-    // Upload file to S3
-    await uploadFileToS3(file, presignedUrl, onProgress);
-
-    console.log('🎉 File upload completed successfully!', { fileKey });
-    return fileKey;
-  } catch (error) {
-    console.error('❌ Error in upload process:', error);
-    throw error;
-  }
+  await uploadFileToS3(file, presignedUrl, onProgress);
+  return fileKey;
 };
