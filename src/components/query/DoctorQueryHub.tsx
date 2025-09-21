@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { uploadFile, UploadProgress } from '../../service/api/upload';
 import { 
   MessageSquare, 
   Mic, 
@@ -49,6 +50,7 @@ interface Document {
   status: 'processed' | 'processing' | 'error';
   pages: number;
   selected: boolean;
+  s3Key?: string;
 }
 
 export const DoctorQueryHub: React.FC = () => {
@@ -68,6 +70,7 @@ export const DoctorQueryHub: React.FC = () => {
   const [uploadType, setUploadType] = useState<'patient' | 'general'>('patient');
   const [patientInfo, setPatientInfo] = useState({ id: '', name: '', department: '' });
   const [dragActive, setDragActive] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: UploadProgress }>({});
 
   const querySuggestions = [
     {
@@ -281,8 +284,22 @@ export const DoctorQueryHub: React.FC = () => {
     }
   };
 
-  const handleFiles = (files: FileList) => {
-    const newDocuments: Document[] = Array.from(files).map(file => ({
+  const handleFiles = async (files: FileList) => {
+    console.log('📁 Files selected for upload:', files.length);
+    const fileArray = Array.from(files);
+    
+    // Log file details
+    fileArray.forEach((file, index) => {
+      console.log(`File ${index + 1}:`, {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified
+      });
+    });
+    
+    // Create document entries immediately
+    const newDocuments: Document[] = fileArray.map(file => ({
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       name: file.name,
       type: uploadType,
@@ -294,17 +311,55 @@ export const DoctorQueryHub: React.FC = () => {
       selected: false
     }));
 
+    console.log('📝 Created document entries:', newDocuments);
     setDocuments(prev => [...prev, ...newDocuments]);
     setShowUpload(false);
 
-    // Simulate processing
-    newDocuments.forEach(doc => {
-      setTimeout(() => {
+    // Upload each file to S3
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      const doc = newDocuments[i];
+      
+      console.log(`🚀 Starting upload for file ${i + 1}/${fileArray.length}:`, file.name);
+      
+      try {
+        const fileKey = await uploadFile(file, (progress) => {
+          console.log(`📊 Progress for ${file.name}:`, progress.percentage + '%');
+          setUploadProgress(prev => ({
+            ...prev,
+            [doc.id]: progress
+          }));
+        });
+
+        console.log(`✅ Upload successful for ${file.name}, fileKey:`, fileKey);
+
+        // Update document status to processed
         setDocuments(prev => prev.map(d =>
-          d.id === doc.id ? { ...d, status: 'processed', pages: Math.floor(Math.random() * 50) + 1 } : d
+          d.id === doc.id ? { 
+            ...d, 
+            status: 'processed', 
+            pages: Math.floor(Math.random() * 50) + 1,
+            // Store the S3 file key for future reference
+            s3Key: fileKey
+          } : d
         ));
-      }, 3000);
-    });
+
+        // Clear upload progress
+        setUploadProgress(prev => {
+          const newProgress = { ...prev };
+          delete newProgress[doc.id];
+          return newProgress;
+        });
+
+      } catch (error) {
+        console.error(`❌ Error uploading file ${file.name}:`, error);
+        
+        // Update document status to error
+        setDocuments(prev => prev.map(d =>
+          d.id === doc.id ? { ...d, status: 'error' } : d
+        ));
+      }
+    }
   };
 
   const handleDocumentAction = (docId: string, action: 'view' | 'edit' | 'remove') => {
@@ -404,6 +459,11 @@ export const DoctorQueryHub: React.FC = () => {
                       : 'bg-red-100 text-red-800'
                   }`}>
                     {doc.status}
+                    {doc.status === 'processing' && uploadProgress[doc.id] && (
+                      <span className="ml-1">
+                        ({uploadProgress[doc.id].percentage}%)
+                      </span>
+                    )}
                   </span>
                 </div>
 
@@ -424,6 +484,22 @@ export const DoctorQueryHub: React.FC = () => {
                     <span>{doc.size}</span>
                     <span>{doc.pages} pages</span>
                   </div>
+                  
+                  {/* Upload Progress Bar */}
+                  {doc.status === 'processing' && uploadProgress[doc.id] && (
+                    <div className="mt-2">
+                      <div className="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>Uploading...</span>
+                        <span>{uploadProgress[doc.id].percentage}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div 
+                          className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress[doc.id].percentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons */}
