@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, FileText, User, FolderOpen, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { uploadFile } from "../../service/api/upload";
 
 interface Document {
   id: string;
@@ -46,55 +47,82 @@ export const DocumentUpload: React.FC = () => {
     }
   };
 
-  const handleFiles = (files: FileList) => {
-    const newDocuments: Document[] = Array.from(files).map(file => ({
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+const handleFiles = async (files: FileList) => {
+  const fileArray = Array.from(files);
+  
+  for (const file of fileArray) {
+    const newDoc: Document = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: file.name,
       type: uploadType,
-      patientInfo: uploadType === 'patient' ? { ...patientInfo } : undefined,
-      status: 'uploading',
-      progress: 0
-    }));
-
-    setDocuments(prev => [...prev, ...newDocuments]);
-
-    // Simulate upload process
-    newDocuments.forEach(doc => {
-      simulateUpload(doc.id);
-    });
-  };
-
-  const simulateUpload = (docId: string) => {
-    const updateProgress = (progress: number) => {
-      setDocuments(prev => prev.map(doc => 
-        doc.id === docId ? { ...doc, progress } : doc
-      ));
+      patientInfo: uploadType === "patient" ? { ...patientInfo } : undefined,
+      status: "uploading",
+      progress: 0,
     };
 
-    const updateStatus = (status: Document['status']) => {
-      setDocuments(prev => prev.map(doc => 
-        doc.id === docId ? { ...doc, status } : doc
-      ));
-    };
+    setDocuments((prev) => [...prev, newDoc]);
 
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 30;
-      if (progress >= 100) {
-        progress = 100;
-        updateProgress(progress);
-        updateStatus('processing');
-        clearInterval(interval);
+    try {
+      await uploadFile(
+        file,
+        uploadType,
+        uploadType === "patient" ? patientInfo : undefined,
+        (progress) => {
+          setDocuments((prev) =>
+            prev.map((doc) =>
+              doc.id === newDoc.id ? { ...doc, progress: progress.percentage } : doc
+            )
+          );
+        }
+      );
+
+      setDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === newDoc.id ? { ...doc, status: "processing" } : doc
+        )
+      );
+    } catch (error) {
+      console.error("Upload failed", error);
+      setDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === newDoc.id ? { ...doc, status: "error" } : doc
+        )
+      );
+    }
+  }
+};
+
+  // const simulateUpload = (docId: string) => {
+  //   const updateProgress = (progress: number) => {
+  //     setDocuments(prev => prev.map(doc => 
+  //       doc.id === docId ? { ...doc, progress } : doc
+  //     ));
+  //   };
+
+  //   const updateStatus = (status: Document['status']) => {
+  //     setDocuments(prev => prev.map(doc => 
+  //       doc.id === docId ? { ...doc, status } : doc
+  //     ));
+  //   };
+
+  //   let progress = 0;
+  //   const interval = setInterval(() => {
+  //     progress += Math.random() * 30;
+  //     if (progress >= 100) {
+  //       progress = 100;
+  //       updateProgress(progress);
+  //       updateStatus('processing');
+  //       clearInterval(interval);
         
-        // Simulate processing
-        setTimeout(() => {
-          updateStatus(Math.random() > 0.1 ? 'completed' : 'error');
-        }, 2000);
-      } else {
-        updateProgress(progress);
-      }
-    }, 500);
-  };
+  //       // Simulate processing
+  //       setTimeout(() => {
+  //         updateStatus(Math.random() > 0.1 ? 'completed' : 'error');
+  //       }, 2000);
+  //     } else {
+  //       updateProgress(progress);
+  //     }
+  //   }, 500);
+  // };
 
   const removeDocument = (docId: string) => {
     setDocuments(prev => prev.filter(doc => doc.id !== docId));
