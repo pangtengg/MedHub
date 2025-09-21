@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { uploadFile, UploadProgress } from '../../service/api/upload';
+import { askQuestion } from '../../service/api/ask';
 import { 
   MessageSquare, 
   Mic, 
@@ -132,7 +133,51 @@ export const DoctorQueryHub: React.FC = () => {
 
   const selectedDocuments = documents.filter(doc => doc.selected);
 
-  const handleSendMessage = () => { 
+  // const handleSendMessage = () => { 
+  //   if (!inputMessage.trim()) return;
+
+  //   const userMessage: Message = {
+  //     id: Date.now().toString(),
+  //     type: 'user',
+  //     content: inputMessage,
+  //     timestamp: new Date()
+  //   };
+
+  //   setMessages(prev => [...prev, userMessage]);
+  //   setInputMessage('');
+
+  //   // Simulate AI response with hardcoded responses
+  //   setTimeout(() => {
+  //     const aiResponse: Message = {
+  //       id: (Date.now() + 1).toString(),
+  //       type: 'assistant',
+  //       content: generateAIResponse(inputMessage),
+  //       timestamp: new Date(),
+  //       references: [
+  //         {
+  //           document: 'Patient_John_Doe_CardiacReport.pdf',
+  //           page: 3,
+  //           excerpt: 'Patient shows signs of mild coronary artery disease with 40% stenosis in LAD...'
+  //         },
+  //         {
+  //           document: 'Cardiology_Guidelines_2024.pdf',
+  //           page: 127,
+  //           excerpt: 'For patients with moderate stenosis (40-70%), medical management is recommended...'
+  //         }
+  //       ],
+  //       alerts: [
+  //         {
+  //           type: 'condition',
+  //           message: 'Patient has history of hypertension requiring monitoring'
+  //         }
+  //       ]
+  //     };
+
+  //     setMessages(prev => [...prev, aiResponse]);
+  //   }, 1500);
+  // }; 
+
+  const handleSendMessage = async () => { 
     if (!inputMessage.trim()) return;
 
     const userMessage: Message = {
@@ -145,35 +190,43 @@ export const DoctorQueryHub: React.FC = () => {
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
 
-    // Simulate AI response with hardcoded responses
-    setTimeout(() => {
+    const typingIndicator: Message = {
+      id: 'typing',
+      type: 'assistant',
+      content: 'Thinking...',
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, typingIndicator]);
+
+    try {
+      const response = await askQuestion(inputMessage);
+
+      // Remove the typing indicator
+      setMessages(prev => prev.filter(msg => msg.id !== 'typing'));
+
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: generateAIResponse(inputMessage),
+        content: response.answer,
         timestamp: new Date(),
-        references: [
-          {
-            document: 'Patient_John_Doe_CardiacReport.pdf',
-            page: 3,
-            excerpt: 'Patient shows signs of mild coronary artery disease with 40% stenosis in LAD...'
-          },
-          {
-            document: 'Cardiology_Guidelines_2024.pdf',
-            page: 127,
-            excerpt: 'For patients with moderate stenosis (40-70%), medical management is recommended...'
-          }
-        ],
-        alerts: [
-          {
-            type: 'condition',
-            message: 'Patient has history of hypertension requiring monitoring'
-          }
-        ]
+        // You can add these later if your backend returns them
+        // references: response.references,
+        // alerts: response.alerts,
       };
 
       setMessages(prev => [...prev, aiResponse]);
-    }, 1500);
+
+    } catch (error) {
+      setMessages(prev => prev.filter(msg => msg.id !== 'typing'));
+      const errorResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: 'Sorry.',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorResponse]);
+      console.error("API call failed:", error);
+    }
   }; 
 
   const generateAIResponse = (query: string) => {
